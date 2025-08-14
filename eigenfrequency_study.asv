@@ -1,7 +1,5 @@
 % MATLAB Script for COMSOL Geometry Modification and Eigenfrequency Study
 %
-% This script has been updated to reflect the COMSOL model hierarchy provided.
-% It is divided into runnable sections (cells).
 % To run a specific section in the MATLAB Editor, click inside it and
 % press Ctrl+Enter.
 
@@ -16,75 +14,120 @@ import com.comsol.model.util.*
 
 fprintf('SECTION 1: Initializing and loading model...\n');
 
-% Replace 'test.mph' with the path to your COMSOL model file.
 try
-    model = mphload('"C:\Users\Hiro\Downloads\hiro.mph"');
-    fprintf('Model "hiro.mph" loaded successfully.\n');
+    model = mphload("C:\Users\Hiro\Downloads\racetrack_CAD_in_COMSOL.mph");
+    fprintf('Model "racetrack_CAD_in_COMSOL.mph" loaded successfully.\n');
 catch ME
-    error('Failed to load "hiro.mph". Please ensure the file exists and contains a parameter "L".\n%s', ME.message);
+    error('Failed to load "racetrack_CAD_in_COMSOL.mph". Please ensure the file exists and contains a parameter "L".\n%s', ME.message);
 end
 
 fprintf('--- Section 1 Complete ---\n\n');
 
 
-%% --- SECTION 2: Set Up and Run Eigenfrequency Study ---
-% This section defines and runs the eigenfrequency study.
-% It uses the 'Solid Mechanics (solid)' physics interface from your model.
+%% --- SECTION 2: Modify Physical Dimensions ---
 
-fprintf('SECTION 2: Setting up and running the study...\n');
+fprintf('SECTION 3: Modifying Physical Dimensions...\n');
 
-% --- Set Up Eigenfrequency Study ---
-% Check if the 'Solid Mechanics (solid)' physics interface exists.
+% Define component, geometry, and workplane tags for clarity
+comp_tag = 'comp1';
+geom_tag = 'geom1';
+wp_tag = 'wp6';
+rect_tag = 'r1';
+new_width = 0.13;
+
+%% --- SECTION 2: Modify Physical Dimensions ---
+
+fprintf('SECTION 3: Modifying Physical Dimensions...\n');
+
+% Define component, geometry, and workplane tags for clarity
+comp_tag = 'comp1';
+geom_tag = 'geom1';
+wp_tag = 'wp6';
+rect_tag = 'r1';
+new_width = 0.13; % in mm (or match your model's length unit)
+
+% Get the handle to the workplane feature
+wp_feature = model.component(comp_tag).geom(geom_tag).feature(wp_tag);
+
+% Get the handle to the rectangle feature within the workplane
+rect_feature = wp_feature.geom().feature(rect_tag);
+
+% --- Get and display the current width ---
+properties_before = mphgetproperties(rect_feature);
+size_before_java_array = properties_before.size;
+
+% Preserve height with units
+width_before_string = char(size_before_java_array(1));
+height_with_units   = char(size_before_java_array(2));
+
+fprintf('The original width of %s was: %s\n', rect_tag, width_before_string);
+fprintf('The height of %s is: %s (this will be preserved)\n', rect_tag, height_with_units);
+
+% --- Set the new width while preserving height ---
+width_with_units = sprintf('%g[mm]', new_width); % keep explicit units
+
+fprintf('Setting width of %s to: %s\n', rect_tag, width_with_units);
+rect_feature.set('size', {width_with_units, height_with_units});
+
+% --- Confirm the change ---
+properties_after = mphgetproperties(rect_feature);
+size_after_java_array = properties_after.size;
+width_after_string = char(size_after_java_array(1));
+fprintf('The new width of %s is: %s\n', rect_tag, width_after_string);
+
+% --- Rebuild geometry and mesh ---
+fprintf('Rebuilding geometry and mesh...\n');
+model.component(comp_tag).geom(geom_tag).run();
+model.component(comp_tag).mesh('mesh1').run();
+
+fprintf('Modification complete.\n');
+
+
+
+%% SECTION 3: Eigenfrequency study
+
+study_tag = 'std1';
+
+% --- Run the Study ---
+fprintf('Running Eigenfrequency study...\n');
 try
-    model.physics('solid');
-    fprintf('Solid Mechanics physics interface found.\n');
-catch
-    fprintf('Solid Mechanics not found. Adding it now...\n');
-    model.physics.create('solid', 'SolidMechanics', 'geom1');
-    % Add a fixed constraint to make the problem solvable
-    model.physics('solid').create('fix1', 'Fixed', 2); % 2 for boundary
-    model.physics('solid').feature('fix1').selection.set([1]); % Fix boundary 1
+    model.study(study_tag).run();
+    fprintf('Study finished successfully.\n');
+catch ME
+    warning('The study failed to run. See the error message below.');
+    rethrow(ME); % This will print the detailed error from COMSOL
 end
 
-fprintf('Creating new Eigenfrequency study...\n');
-study_tag = 'std3';
-% More robustly check if study exists, and remove it to ensure a clean run.
-study_tags = mphtags(model.study);
-if ismember(study_tag, study_tags)
-    fprintf('Study "%s" already exists. Removing and recreating for a clean state.\n', study_tag);
-    model.study.remove(study_tag);
+% Evaluate the expression 'freq' for all solutions
+% The result is a column vector of the frequencies in Hz
+eigenfrequencies = mphglobal(model, 'freq', 'solnum', 'all');
+
+fprintf('Found %d eigenfrequencies:\n', length(eigenfrequencies));
+for i = 1:length(eigenfrequencies)
+    fprintf('  Mode %d: %.2f Hz\n', i, eigenfrequencies(i));
 end
-model.study.create(study_tag);
-model.study(study_tag).create('eig', 'Eigenfrequency');
 
+fprintf('--- Section 3 Complete ---\n\n');
 
+%% SECTION 4: Plotting 3D Plots 
 
-% % --- Explicitly create the solver sequence for the study ---
-% fprintf('Explicitly creating solver sequence...\n');
-% sol_tag = 'sol2'; % The solver for 'std2' will be 'sol2'
-% sol_tags = mphtags(model.sol);
-% if ismember(sol_tag, sol_tags)
-%     model.sol.remove(sol_tag);
-% end
-% model.sol.create(sol_tag);
-% model.sol(sol_tag).study(study_tag); % Link solver to the study
-% model.sol(sol_tag).createAutoSequence(study_tag); % Generate default solver steps for the specified study
-% 
-% % Configure the study settings
-% study_step = model.study(study_tag).feature('eig');
-% study_step.set('neigs', 6); % Number of eigenfrequencies to find
-% study_step.set('shift', '100'); % Search for frequencies around 100 Hz
-% 
-% % The study needs to be associated with the physics interface
-% study_step.activate('solid', true);
-% 
-% % --- Run the Study ---
-% fprintf('Running Eigenfrequency study...\n');
-% try
-%     model.study(study_tag).run();
-%     fprintf('Study finished successfully.\n');
-% catch ME
-%     warning('The study failed to run. See the error message below.');
-%     rethrow(ME); % This will print the detailed error from COMSOL
-% end
-% fprintf('--- Section 3 Complete ---\n\n');
+num_modes = length(eigenfrequencies);
+
+plot_group_tag = 'pg1';
+plot_group = model.result(plot_group_tag);
+pg_properties = mphgetproperties(plot_group);
+dset_tag = pg_properties.data;
+
+for i = 1:num_modes
+    fprintf('Plotting Mode %d...\n', i);
+
+    model.result(plot_group_tag).set('solnum', i);
+
+    figure;
+
+    mphplot(model, plot_group_tag);
+
+    title(sprintf('Mode %d: %.2f Hz', i, eigenfrequencies(i)));
+end
+
+disp('Finished plotting all modes.');

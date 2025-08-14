@@ -25,35 +25,51 @@ fprintf('--- Section 1 Complete ---\n\n');
 
 
 %% --- SECTION 2: Modify Physical Dimensions ---
-% This section defines and runs the eigenfrequency study.
 
 fprintf('SECTION 2: Modifying Physical Dimensions...\n');
 
-% Get the feature and its properties
-cyl_feature = model.component('comp1').geom('geom1').feature('cyl1');
-properties_struct = mphgetproperties(cyl_feature);
+comp_tag = 'comp1';
+geom_tag = 'geom1';
+wp_tag   = 'wp6';
+rect_tag = 'r1';
+new_width = 0.01; % in mm
 
-% The radius is returned as a STRING (e.g., '0.6')
-radius_as_string = properties_struct.r;
+% Get handles
+wp_feature   = model.component(comp_tag).geom(geom_tag).feature(wp_tag);
+rect_feature = wp_feature.geom().feature(rect_tag);
 
-% Convert the string to a numeric value (double)
-radius_as_number = str2double(radius_as_string);
+% --- Get current size array ---
+properties_before       = mphgetproperties(rect_feature);
+size_before_java_array  = properties_before.size; % Java array
+size_before_str         = char(size_before_java_array); % e.g. "[0.12;0.06]"
 
-% Print the numeric value
-fprintf('The radius of cyl1 is: %f\n', radius_as_number);
+% Parse numeric values
+size_vals = sscanf(size_before_str, '[%f;%f]'); % returns [width; height]
+width_before  = size_vals(1);
+height_before = size_vals(2);
 
-% Set radius to new value
-model.component('comp1').geom('geom1').feature('cyl1').set('r', 0.05);
+fprintf('The original width of %s was: %g mm\n', rect_tag, width_before);
+fprintf('The height of %s is: %g mm (this will be preserved)\n', rect_tag, height_before);
 
-cyl_feature = model.component('comp1').geom('geom1').feature('cyl1');
-properties_struct = mphgetproperties(cyl_feature);
-radius_as_string = properties_struct.r;
-radius_as_number = str2double(radius_as_string);
-fprintf('The radius of cyl1 is: %f\n', radius_as_number);
+% --- Set new width, preserve height ---
+fprintf('Setting width of %s to: %g mm\n', rect_tag, new_width);
+rect_feature.set('size', [new_width, height_before]);
 
-% Build All
-model.component('comp1').geom('geom1').run();
-model.component('comp1').mesh('mesh1').run();
+% --- Confirm the change ---
+properties_after      = mphgetproperties(rect_feature);
+size_after_str        = char(properties_after.size);
+size_after_vals       = sscanf(size_after_str, '[%f;%f]');
+width_after           = size_after_vals(1);
+
+fprintf('The new width of %s is: %g mm\n', rect_tag, width_after);
+
+% --- Rebuild geometry and mesh ---
+fprintf('Rebuilding geometry and mesh...\n');
+model.component(comp_tag).geom(geom_tag).run();
+model.component(comp_tag).mesh('mesh1').run();
+
+fprintf('Modification complete.\n');
+
 
 %% SECTION 3: Eigenfrequency study
 
