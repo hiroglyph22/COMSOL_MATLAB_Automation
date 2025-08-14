@@ -26,54 +26,31 @@ fprintf('--- Section 1 Complete ---\n\n');
 
 %% --- SECTION 2: Modify Physical Dimensions ---
 
-fprintf('SECTION 3: Modifying Physical Dimensions...\n');
+fprintf('SECTION 2: Modifying Physical Dimensions...\n');
 
-% Define component, geometry, and workplane tags for clarity
 comp_tag = 'comp1';
 geom_tag = 'geom1';
-wp_tag = 'wp6';
-rect_tag = 'r1';
-new_width = 0.13;
+wp_tag   = 'wp7';
+ellipse_tag = 'e1';
+new_a_semiaxis = 0.06; % in mm
 
-%% --- SECTION 2: Modify Physical Dimensions ---
+% Get handles
+wp_feature   = model.component(comp_tag).geom(geom_tag).feature(wp_tag);
+ellipse_feature = wp_feature.geom().feature(ellipse_tag);
 
-fprintf('SECTION 3: Modifying Physical Dimensions...\n');
+% --- Get current size array ---
+properties_before       = mphgetproperties(ellipse_feature);
+a_before  = properties_before.a; % Java array
 
-% Define component, geometry, and workplane tags for clarity
-comp_tag = 'comp1';
-geom_tag = 'geom1';
-wp_tag = 'wp6';
-rect_tag = 'r1';
-new_width = 0.13; % in mm (or match your model's length unit)
-
-% Get the handle to the workplane feature
-wp_feature = model.component(comp_tag).geom(geom_tag).feature(wp_tag);
-
-% Get the handle to the rectangle feature within the workplane
-rect_feature = wp_feature.geom().feature(rect_tag);
-
-% --- Get and display the current width ---
-properties_before = mphgetproperties(rect_feature);
-size_before_java_array = properties_before.size;
-
-% Preserve height with units
-width_before_string = char(size_before_java_array(1));
-height_with_units   = char(size_before_java_array(2));
-
-fprintf('The original width of %s was: %s\n', rect_tag, width_before_string);
-fprintf('The height of %s is: %s (this will be preserved)\n', rect_tag, height_with_units);
-
-% --- Set the new width while preserving height ---
-width_with_units = sprintf('%g[mm]', new_width); % keep explicit units
-
-fprintf('Setting width of %s to: %s\n', rect_tag, width_with_units);
-rect_feature.set('size', {width_with_units, height_with_units});
+rect_feature.set('a', [new_width, height_before]);
 
 % --- Confirm the change ---
-properties_after = mphgetproperties(rect_feature);
-size_after_java_array = properties_after.size;
-width_after_string = char(size_after_java_array(1));
-fprintf('The new width of %s is: %s\n', rect_tag, width_after_string);
+properties_after      = mphgetproperties(rect_feature);
+size_after_str        = char(properties_after.size);
+size_after_vals       = sscanf(size_after_str, '[%f;%f]');
+width_after           = size_after_vals(1);
+
+fprintf('The new width of %s is: %g mm\n', rect_tag, width_after);
 
 % --- Rebuild geometry and mesh ---
 fprintf('Rebuilding geometry and mesh...\n');
@@ -81,7 +58,6 @@ model.component(comp_tag).geom(geom_tag).run();
 model.component(comp_tag).mesh('mesh1').run();
 
 fprintf('Modification complete.\n');
-
 
 
 %% SECTION 3: Eigenfrequency study

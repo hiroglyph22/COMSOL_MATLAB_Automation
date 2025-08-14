@@ -30,38 +30,27 @@ fprintf('SECTION 2: Modifying Physical Dimensions...\n');
 
 comp_tag = 'comp1';
 geom_tag = 'geom1';
-wp_tag   = 'wp6';
-rect_tag = 'r1';
-new_width = 0.01; % in mm
+wp_tag   = 'wp7';
+ellipse_tag = 'e1';
+new_a_semiaxis = 0.055; % in mm
 
 % Get handles
 wp_feature   = model.component(comp_tag).geom(geom_tag).feature(wp_tag);
-rect_feature = wp_feature.geom().feature(rect_tag);
+ellipse_feature = wp_feature.geom().feature(ellipse_tag);
 
 % --- Get current size array ---
-properties_before       = mphgetproperties(rect_feature);
-size_before_java_array  = properties_before.size; % Java array
-size_before_str         = char(size_before_java_array); % e.g. "[0.12;0.06]"
+properties_before       = mphgetproperties(ellipse_feature);
+a_before  = properties_before.a; % Java array
 
-% Parse numeric values
-size_vals = sscanf(size_before_str, '[%f;%f]'); % returns [width; height]
-width_before  = size_vals(1);
-height_before = size_vals(2);
+fprintf('The previous a_semiaxis of %s is: %s mm\n', ellipse_tag, a_before);
 
-fprintf('The original width of %s was: %g mm\n', rect_tag, width_before);
-fprintf('The height of %s is: %g mm (this will be preserved)\n', rect_tag, height_before);
-
-% --- Set new width, preserve height ---
-fprintf('Setting width of %s to: %g mm\n', rect_tag, new_width);
-rect_feature.set('size', [new_width, height_before]);
+ellipse_feature.set('a', new_a_semiaxis);
 
 % --- Confirm the change ---
-properties_after      = mphgetproperties(rect_feature);
-size_after_str        = char(properties_after.size);
-size_after_vals       = sscanf(size_after_str, '[%f;%f]');
-width_after           = size_after_vals(1);
+properties_after      = mphgetproperties(ellipse_feature);
+a_after           = properties_after.a;
 
-fprintf('The new width of %s is: %g mm\n', rect_tag, width_after);
+fprintf('The new a_semiaxis of %s is: %s mm\n', ellipse_tag, a_after);
 
 % --- Rebuild geometry and mesh ---
 fprintf('Rebuilding geometry and mesh...\n');
