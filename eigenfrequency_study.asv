@@ -1,0 +1,90 @@
+% MATLAB Script for COMSOL Geometry Modification and Eigenfrequency Study
+%
+% This script has been updated to reflect the COMSOL model hierarchy provided.
+% It is divided into runnable sections (cells).
+% To run a specific section in the MATLAB Editor, click inside it and
+% press Ctrl+Enter.
+
+%% --- SECTION 1: Initialization and Model Loading ---
+% This section connects to the COMSOL server and loads your model file.
+
+clear all;
+clc;
+
+import com.comsol.model.*
+import com.comsol.model.util.*
+
+fprintf('SECTION 1: Initializing and loading model...\n');
+
+% Replace 'test.mph' with the path to your COMSOL model file.
+try
+    model = mphload('"C:\Users\Hiro\Downloads\hiro.mph"');
+    fprintf('Model "hiro.mph" loaded successfully.\n');
+catch ME
+    error('Failed to load "hiro.mph". Please ensure the file exists and contains a parameter "L".\n%s', ME.message);
+end
+
+fprintf('--- Section 1 Complete ---\n\n');
+
+
+%% --- SECTION 2: Set Up and Run Eigenfrequency Study ---
+% This section defines and runs the eigenfrequency study.
+% It uses the 'Solid Mechanics (solid)' physics interface from your model.
+
+fprintf('SECTION 2: Setting up and running the study...\n');
+
+% --- Set Up Eigenfrequency Study ---
+% Check if the 'Solid Mechanics (solid)' physics interface exists.
+try
+    model.physics('solid');
+    fprintf('Solid Mechanics physics interface found.\n');
+catch
+    fprintf('Solid Mechanics not found. Adding it now...\n');
+    model.physics.create('solid', 'SolidMechanics', 'geom1');
+    % Add a fixed constraint to make the problem solvable
+    model.physics('solid').create('fix1', 'Fixed', 2); % 2 for boundary
+    model.physics('solid').feature('fix1').selection.set([1]); % Fix boundary 1
+end
+
+fprintf('Creating new Eigenfrequency study...\n');
+study_tag = 'std3';
+% More robustly check if study exists, and remove it to ensure a clean run.
+study_tags = mphtags(model.study);
+if ismember(study_tag, study_tags)
+    fprintf('Study "%s" already exists. Removing and recreating for a clean state.\n', study_tag);
+    model.study.remove(study_tag);
+end
+model.study.create(study_tag);
+model.study(study_tag).create('eig', 'Eigenfrequency');
+
+
+
+% % --- Explicitly create the solver sequence for the study ---
+% fprintf('Explicitly creating solver sequence...\n');
+% sol_tag = 'sol2'; % The solver for 'std2' will be 'sol2'
+% sol_tags = mphtags(model.sol);
+% if ismember(sol_tag, sol_tags)
+%     model.sol.remove(sol_tag);
+% end
+% model.sol.create(sol_tag);
+% model.sol(sol_tag).study(study_tag); % Link solver to the study
+% model.sol(sol_tag).createAutoSequence(study_tag); % Generate default solver steps for the specified study
+% 
+% % Configure the study settings
+% study_step = model.study(study_tag).feature('eig');
+% study_step.set('neigs', 6); % Number of eigenfrequencies to find
+% study_step.set('shift', '100'); % Search for frequencies around 100 Hz
+% 
+% % The study needs to be associated with the physics interface
+% study_step.activate('solid', true);
+% 
+% % --- Run the Study ---
+% fprintf('Running Eigenfrequency study...\n');
+% try
+%     model.study(study_tag).run();
+%     fprintf('Study finished successfully.\n');
+% catch ME
+%     warning('The study failed to run. See the error message below.');
+%     rethrow(ME); % This will print the detailed error from COMSOL
+% end
+% fprintf('--- Section 3 Complete ---\n\n');
