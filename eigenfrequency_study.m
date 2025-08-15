@@ -107,3 +107,26 @@ for i = 1:num_modes
 end
 
 disp('Finished plotting all modes.');
+
+%% SECTION 5: Playing Animations
+
+anim_tag = 'anim1'; % must be the actual tag of your animation export
+anim = model.result.export(anim_tag);
+% anim.set('type', 'movie');
+% anim.set('movietype', 'gif');
+% anim.set('gifopen', 'on');
+% anim.set('giffilename', sprintf('mode_%d.gif', 1));
+% anim.run();
+
+for mode_idx = 1:num_modes
+    % Set solution number as string
+    anim.set('solnum', num2str(mode_idx));
+
+    % Set unique filename for each mode
+    anim.set('giffilename', sprintf('mode_%d.gif', mode_idx));
+
+    % Export
+    anim.run;
+
+    fprintf('Saved animation for mode %d as mode_%d.gif\n', mode_idx, mode_idx);
+end
